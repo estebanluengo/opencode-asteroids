@@ -24,11 +24,12 @@ Luego visita `http://localhost:3000`.
 
 ## Controles
 
-| Tecla     | Acción     |
-| --------- | ---------- |
-| `←` `→`   | Rotar nave |
-| `↑`       | Propulsar  |
-| `Espacio` | Disparar   |
+| Tecla     | Acción          |
+| --------- | --------------- |
+| `←` `→`   | Rotar nave      |
+| `↑`       | Propulsar       |
+| `Espacio` | Disparar        |
+| `Shift`   | Disparo triple (5 s) |
 
 ## Puntuación
 
@@ -43,3 +44,4 @@ Luego visita `http://localhost:3000`.
 - 3 vidas con invencibilidad temporal al reaparecer (parpadeo)
 - Asteroides se parten en fragmentos más pequeños al ser destruidos
 - Partículas de explosión al destruir asteroides
+- Disparo triple (`Shift`): durante 5 s dispara 3 balas en abanico

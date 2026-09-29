@@ -67,6 +67,10 @@ const SPEED_BOOST_TIME = 5;                 // duración del boost (s)
 const SPEED_MULT       = 2;                 // multiplicador de empuje y velocidad tope
 const DROP_CHANCE      = [0, 0.05, 0.10, 0.15];  // prob. de soltarlo al destruir, por tamaño
 
+// ── Triple shot ───────────────────────────────────────────────────────────────
+const TRIPLE_TIME   = 5;              // duración del disparo triple (s)
+const TRIPLE_SPREAD = Math.PI / 12;   // desviación de las balas laterales (±15°)
+
 class Asteroid {
   constructor(x, y, size = 3) {
     this.x    = x;
@@ -138,6 +142,7 @@ class Ship {
     this.invincible    = 3;
     this.shootCooldown = 0;
     this.speedBoost    = 0;   // s restantes del power-up «velocidad»
+    this.tripleShot    = 0;   // s restantes del disparo triple
     this.dead          = false;
   }
 
@@ -146,6 +151,7 @@ class Ship {
     if (this.invincible    > 0) this.invincible    -= dt;
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
     if (this.speedBoost    > 0) this.speedBoost    -= dt;
+    if (this.tripleShot    > 0) this.tripleShot    -= dt;
 
     const ROT   = 3.5;   // rad/s
     const THRUST = 260 * (this.speedBoost > 0 ? SPEED_MULT : 1);  // px/s²
@@ -172,6 +178,13 @@ class Ship {
     const NOSE = 21;
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
+    if (this.tripleShot > 0) {
+      return [
+        new Bullet(ox, oy, this.angle - TRIPLE_SPREAD),
+        new Bullet(ox, oy, this.angle),
+        new Bullet(ox, oy, this.angle + TRIPLE_SPREAD),
+      ];
+    }
     return [new Bullet(ox, oy, this.angle)];
   }
 
@@ -183,7 +196,9 @@ class Ship {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
-    ctx.strokeStyle = this.speedBoost > 0 ? '#7df9ff' : '#fff';
+    ctx.strokeStyle = this.tripleShot > 0 ? '#ff9de2'
+                    : this.speedBoost > 0 ? '#7df9ff'
+                    : '#fff';
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
 
@@ -379,6 +394,11 @@ function update(dt) {
     bullets.push(...ship.tryShoot());
   }
 
+  // Activar disparo triple
+  if (pressed('ShiftLeft') || pressed('ShiftRight')) {
+    ship.tripleShot = TRIPLE_TIME;
+  }
+
   ship.update(dt);
   bullets.forEach(b => b.update(dt));
   asteroids.forEach(a => a.update(dt));
@@ -472,6 +492,18 @@ function drawHUD() {
     ctx.strokeStyle = 'rgba(255, 210, 63, 0.5)';
     ctx.lineWidth   = 1;
     ctx.strokeRect(W / 2 - 60, 52, 120, 4);
+  }
+
+  // Triple shot activo
+  if (ship.tripleShot > 0) {
+    const ratio = ship.tripleShot / TRIPLE_TIME;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ff9de2';
+    ctx.fillText(`TRIPLE x3  ${ship.tripleShot.toFixed(1)}s`, W / 2, 70);
+    ctx.fillRect(W / 2 - 60, 76, 120 * ratio, 4);
+    ctx.strokeStyle = 'rgba(255, 157, 226, 0.5)';
+    ctx.lineWidth   = 1;
+    ctx.strokeRect(W / 2 - 60, 76, 120, 4);
   }
 }
 
