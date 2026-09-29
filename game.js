@@ -62,9 +62,11 @@ const RADII  = [0, 16, 30, 50];   // por tamaño 1, 2, 3
 const SPEEDS = [0, 85, 55, 32];   // velocidad base por tamaño
 const POINTS = [0, 100, 50, 20];  // puntos por tamaño
 
-// ── Power-up: velocidad ───────────────────────────────────────────────────────
-const SPEED_BOOST_TIME = 5;                 // duración del boost (s)
+// ── Power-ups ─────────────────────────────────────────────────────────────────
+const SPEED_BOOST_TIME = 5;                 // duración del boost de velocidad (s)
 const SPEED_MULT       = 2;                 // multiplicador de empuje y velocidad tope
+const SHIELD_TIME      = 5;                 // duración del escudo (s)
+const SHIELD_COLOR     = '125, 255, 159';   // color del escudo (verde)
 const DROP_CHANCE      = [0, 0.05, 0.10, 0.15];  // prob. de soltarlo al destruir, por tamaño
 
 // ── Triple shot ───────────────────────────────────────────────────────────────
@@ -226,6 +228,7 @@ class Ship {
     this.shootCooldown = 0;
     this.speedBoost    = 0;   // s restantes del power-up «velocidad»
     this.tripleShot    = 0;   // s restantes del disparo triple
+    this.shield        = 0;   // s restantes del power-up «escudo»
     this.dead          = false;
   }
 
@@ -235,6 +238,7 @@ class Ship {
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
     if (this.speedBoost    > 0) this.speedBoost    -= dt;
     if (this.tripleShot    > 0) this.tripleShot    -= dt;
+    if (this.shield        > 0) this.shield        -= dt;
 
     const ROT   = 3.5;   // rad/s
     const THRUST = 260 * (this.speedBoost > 0 ? SPEED_MULT : 1);  // px/s²
@@ -303,6 +307,28 @@ class Ship {
 
     ctx.restore();
   }
+
+  drawShield() {
+    const pulse = 1 + Math.sin(performance.now() / 120) * 0.06;
+    const ratio = this.shield / SHIELD_TIME;
+    // Parpadea cuando está a punto de agotarse
+    const alpha = this.shield < 1.5 && Math.floor(this.shield * 6) % 2 === 0 ? 0.2 : 0.55;
+
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.strokeStyle = `rgba(${SHIELD_COLOR}, ${alpha})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, 26 * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = `rgba(${SHIELD_COLOR}, ${(alpha * ratio).toFixed(2)})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(0, 0, 31 * pulse, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ratio);
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 // ── Partículas (explosión) ────────────────────────────────────────────────────
@@ -337,11 +363,14 @@ class Particle {
   }
 }
 
-// ── Power-up: velocidad ───────────────────────────────────────────────────────
+// ── Power-ups ─────────────────────────────────────────────────────────────────
+const POWERUP_TYPES = ['speed', 'shield'];
+
 class PowerUp {
   constructor(x, y) {
     this.x = x;
     this.y = y;
+    this.type = POWERUP_TYPES[randInt(0, POWERUP_TYPES.length - 1)];
     const angle = rand(0, Math.PI * 2);
     const speed = rand(15, 40);
     this.vx = Math.cos(angle) * speed;
@@ -364,30 +393,49 @@ class PowerUp {
     const pulse = 1 + Math.sin(this.phase) * 0.12;
     // Parpadea cuando está a punto de desaparecer
     const alpha = this.ttl < 3 && Math.floor(this.ttl * 5) % 2 === 0 ? 0.15 : 0.7;
+    const isShield = this.type === 'shield';
 
     ctx.save();
     ctx.translate(this.x, this.y);
 
     // Anillo pulsante
-    ctx.strokeStyle = `rgba(125, 249, 255, ${alpha})`;
+    ctx.strokeStyle = isShield
+      ? `rgba(${SHIELD_COLOR}, ${alpha})`
+      : `rgba(125, 249, 255, ${alpha})`;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.arc(0, 0, this.radius * pulse, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Rayo (relámpago)
     ctx.scale(pulse, pulse);
-    ctx.fillStyle = `rgba(255, 210, 63, ${alpha})`;
-    ctx.beginPath();
-    ctx.moveTo( -2, -9);
-    ctx.lineTo(  5, -9);
-    ctx.lineTo(  1, -1);
-    ctx.lineTo(  6, -1);
-    ctx.lineTo( -4,  9);
-    ctx.lineTo( -1,  1);
-    ctx.lineTo( -6,  1);
-    ctx.closePath();
-    ctx.fill();
+
+    if (isShield) {
+      // Escudo
+      ctx.strokeStyle = `rgba(${SHIELD_COLOR}, ${alpha})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, -9);
+      ctx.lineTo(7, -5);
+      ctx.lineTo(7, 2);
+      ctx.quadraticCurveTo(7, 8, 0, 10);
+      ctx.quadraticCurveTo(-7, 8, -7, 2);
+      ctx.lineTo(-7, -5);
+      ctx.closePath();
+      ctx.stroke();
+    } else {
+      // Rayo (relámpago)
+      ctx.fillStyle = `rgba(255, 210, 63, ${alpha})`;
+      ctx.beginPath();
+      ctx.moveTo( -2, -9);
+      ctx.lineTo(  5, -9);
+      ctx.lineTo(  1, -1);
+      ctx.lineTo(  6, -1);
+      ctx.lineTo( -4,  9);
+      ctx.lineTo( -1,  1);
+      ctx.lineTo( -6,  1);
+      ctx.closePath();
+      ctx.fill();
+    }
 
     ctx.restore();
   }
@@ -497,7 +545,8 @@ function update(dt) {
   for (const p of powerups) {
     if (!p.dead && dist(ship, p) < ship.radius + p.radius) {
       p.dead = true;
-      ship.speedBoost = SPEED_BOOST_TIME;
+      if (p.type === 'shield') ship.shield = SHIELD_TIME;
+      else                     ship.speedBoost = SPEED_BOOST_TIME;
       explode(p.x, p.y, 8);
     }
   }
@@ -522,7 +571,16 @@ function update(dt) {
   bullets   = bullets.filter(b => !b.dead);
 
   // Nave vs asteroide
-  if (ship.invincible <= 0) {
+  if (ship.shield > 0) {
+    // El escudo destruye los asteroides que impactan (sin partirlos ni dar puntos)
+    for (const a of asteroids) {
+      if (!a.dead && dist(ship, a) < ship.radius + a.radius * 0.82) {
+        a.dead = true;
+        explode(a.x, a.y, a.size * 5);
+      }
+    }
+    asteroids = asteroids.filter(a => !a.dead);
+  } else if (ship.invincible <= 0) {
     for (const a of asteroids) {
       if (dist(ship, a) < ship.radius + a.radius * 0.82) {
         killShip();
@@ -593,6 +651,18 @@ function drawHUD() {
     ctx.fillStyle = SKINS[skinIndex].color;
     ctx.fillText(`SKIN: ${SKINS[skinIndex].name}`, 14, H - 14);
   }
+
+  // Power-up «escudo» activo
+  if (ship.shield > 0) {
+    const ratio = ship.shield / SHIELD_TIME;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = `rgb(${SHIELD_COLOR})`;
+    ctx.fillText(`ESCUDO  ${ship.shield.toFixed(1)}s`, W / 2, 78);
+    ctx.fillRect(W / 2 - 60, 84, 120 * ratio, 4);
+    ctx.strokeStyle = `rgba(${SHIELD_COLOR}, 0.5)`;
+    ctx.lineWidth   = 1;
+    ctx.strokeRect(W / 2 - 60, 84, 120, 4);
+  }
 }
 
 function drawOverlay(title, sub) {
@@ -614,6 +684,7 @@ function draw() {
   powerups.forEach(p => p.draw());
   bullets.forEach(b => b.draw());
   ship.draw();
+  if (ship.shield > 0 && !ship.dead) ship.drawShield();
 
   drawHUD();
 

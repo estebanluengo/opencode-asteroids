@@ -47,3 +47,5 @@ Luego visita `http://localhost:3000`.
 - Partículas de explosión al destruir asteroides
 - Disparo triple (`Shift`): durante 5 s dispara 3 balas en abanico
 - 4 skins vectoriales de nave (pulsa `C` para cambiarla; se recuerda la elección)
+- Power-up de **velocidad**: duplica el empuje y la velocidad tope durante unos segundos
+- Power-up de **escudo**: protege la nave durante unos segundos y destruye los asteroides que la impactan
